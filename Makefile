@@ -10,6 +10,7 @@ SRC_DIR   := src
 OBJ_DIR   := obj
 BIN_DIR   := build
 TARGET    := $(BIN_DIR)/game
+COMPDB    := compile_commands.json
 
 # Discover all .cpp files recursively in SRC_DIR
 SRCS      := $(shell find $(SRC_DIR) -name '*.cpp')
@@ -17,18 +18,28 @@ SRCS      := $(shell find $(SRC_DIR) -name '*.cpp')
 OBJS      := $(patsubst $(SRC_DIR)/%.cpp, $(OBJ_DIR)/%.o, $(SRCS))
 # Track header dependencies (.d files generated alongside .o files)
 DEPS      := $(OBJS:.o=.d)
+# Track compile command fragments (.o.json generated alongside .o files)
+JSONS     := $(OBJS:.o=.o.json)
 
 # Default target
-all: $(TARGET)
+all: $(TARGET) $(COMPDB)
 
 # Link the executable
 $(TARGET): $(OBJS) | $(BIN_DIR)
 	$(CXX) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
+# Generate compile_commands.json from compilation fragments
+$(COMPDB): $(OBJS)
+	@echo "Generating $@"
+	@sed -e '1s/^/[\n/' -e '$$s/,\s*$$/\n]/' $(JSONS) > $@.tmp
+	@mv $@.tmp $@
+
+compiledb: $(COMPDB)
+
 # Compile source files to object files
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp | $(OBJ_DIR)
 	@mkdir -p $(dir $@)
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -MJ $@.json -c $< -o $@
 
 # Create output directories if they don't exist
 $(BIN_DIR) $(OBJ_DIR):
@@ -39,9 +50,9 @@ $(BIN_DIR) $(OBJ_DIR):
 
 # Clean build artifacts
 clean:
-	rm -rf $(OBJ_DIR) $(BIN_DIR)
+	rm -rf $(OBJ_DIR) $(BIN_DIR) $(COMPDB)
 
 # Rebuild from scratch
 re: clean all
 
-.PHONY: all clean re
+.PHONY: all clean re compiledb

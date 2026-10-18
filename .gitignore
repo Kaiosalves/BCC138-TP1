@@ -22,3 +22,4 @@ devenv.local.yaml
 
 build/
 obj/
+compile_commands.json
